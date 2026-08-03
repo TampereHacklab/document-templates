@@ -78,7 +78,7 @@
 #grid(
   columns: (3cm, 1fr),
   row-gutter: 0.8em,
-  [*Päiväys:*], [$päivä$],
+  $if(päivä)$[*Päiväys:*], [$päivä$],$endif$
   $if(laatija)$[*Laatija:*], [$laatija$],$endif$
   $if(jakelu)$[*Jakelu:*], [$jakelu$],$endif$
   $if(lisätietoja)$[*Lisätietoja:*], [$lisätietoja$]$endif$

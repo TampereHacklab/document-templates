@@ -78,7 +78,7 @@
 #grid(
   columns: (3cm, 1fr),
   row-gutter: 0.8em,
-  [*Date:*], [$date$],
+  $if(date)$[*Date:*], [$date$],$endif$
   $if(author)$[*Author:*], [$author$],$endif$
   $if(distribution)$[*Distribution:*], [$distribution$],$endif$
   $if(queries)$[*Queries:*], [$queries$]$endif$
