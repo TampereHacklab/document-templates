@@ -1,6 +1,7 @@
-# pandoc-templates
+# document-templates
 
-Pandoc templates for LaTeX and Typst to quickly create pretty Hacklab documents.
+Document templates for various Hacklab documents, primarily in Typst and LaTeX.
+Some are for Pandoc (under `pandoc/`), others parametric, others static.
 
 ## Usage
 
@@ -14,4 +15,12 @@ To convert using Typst:
 
 ## Available templates
 
-- `poytakirja.tex` / `poytakirja.typ`: template for meeting memos (see `poytakirja_example.md` for syntax)
+### Pandoc
+
+These allow converting Markdown into nice documents via Pandoc.
+They have a bunch of metadata that is configured in a YAML front matter block,
+and the main document is written in plain Markdown.
+
+- **poytakirja**: template for official meeting memos (see `poytakirja_example.md` for syntax)
+- **huomio**: template for short eye-catching notices for the bulletin board
+- **tiedote**: template for official-looking bulletins
