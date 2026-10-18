@@ -7,9 +7,11 @@
 // 2. Compile to regular PDF:
 //    typst compile kaupallisen_kayton_sopimus_fillable_en.typ
 // 3. Generate interactive fillable PDF with typst-fillable:
-//    python3 -c 'from typst_fillable import make_fillable; from typst_fillable.models import FieldStyle; style = FieldStyle(fill_color="#ffffff", border_width=0); open("kaupallisen_kayton_sopimus_fillable_en.pdf", "wb").write(make_fillable("kaupallisen_kayton_sopimus_fillable_en.typ", style=style))'
+//    python3 generate_fillable_sopimus.py --language en
 // 4. Blank form: Leaving variables empty ("") generates a clean printable form
 //    for manual handwriting and signing.
+
+#import "form_fields.typ": capture_field, table_field, date_fields, printed, fillable
 
 // ==========================================
 // 1. AGREEMENT DETAILS AND VARIABLES
@@ -23,8 +25,9 @@
 #let board_representative_name = sys.inputs.at("board_representative_name", default: sys.inputs.at("hallituksen_edustajan_nimi", default: ""))
 
 #let member_name = sys.inputs.at("member_name", default: sys.inputs.at("jasen_nimi", default: ""))
-#let member_business_id = sys.inputs.at("member_business_id", default: sys.inputs.at("jasen_y_tunnus", default: ""))
 #let membership_number = sys.inputs.at("membership_number", default: sys.inputs.at("jasennumero", default: ""))
+#let member_company = sys.inputs.at("member_company", default: sys.inputs.at("jasen_yritys", default: ""))
+#let member_business_id = sys.inputs.at("member_business_id", default: sys.inputs.at("jasen_y_tunnus", default: ""))
 
 #let guardian_name = sys.inputs.at("guardian_name", default: sys.inputs.at("huoltaja_nimi", default: ""))
 #let guardian_contact = sys.inputs.at("guardian_contact", default: sys.inputs.at("huoltaja_yhteystiedot", default: ""))
@@ -89,31 +92,6 @@
   ]
 )
 
-// typst-fillable metadata capture function
-#let capture_field(
-  field_name: "",
-  field_type: "text",
-  dimensions: none,
-  content
-) = {
-  box({
-    context {
-      let pos = here().position()
-      let size = if dimensions != none { dimensions } else {
-        let m = measure(content)
-        (width: m.width, height: m.height)
-      }
-      metadata((
-        fieldName: field_name,
-        fieldType: field_type,
-        dimensions: (width: size.width, height: size.height),
-        pos: (page: pos.page, x: pos.x, y: pos.y),
-      ))
-    }
-    content
-  })
-}
-
 // Tampere Hacklab ry logo (drawn in pure Typst vector graphics)
 #let hacklab_logo(mittakaava: 75%) = {
   scale(x: mittakaava, y: mittakaava, origin: right + horizon, reflow: true)[
@@ -145,6 +123,7 @@
       field_name: field_name,
       field_type: "checkbox",
       dimensions: (width: 9.5pt, height: 9.5pt),
+      value: checked,
     )[
       #box(
         width: 9.5pt,
@@ -152,7 +131,7 @@
         stroke: 0.6pt + black,
         radius: 1.5pt,
         align(center + horizon)[
-          #if checked [
+          #if checked and not fillable [
             #text(size: 8pt, weight: "bold")[#sym.times]
           ]
         ]
@@ -176,7 +155,7 @@
 
 // Helper: Textarea / box for descriptions
 #let description_box(value, field_name: "", height: 36pt) = {
-  capture_field(field_name: field_name, field_type: "textarea", dimensions: (width: 480pt, height: height))[
+  capture_field(field_name: field_name, field_type: "textarea", dimensions: (width: 100%, height: height), value: value)[
     #rect(
       width: 100%,
       height: height,
@@ -187,7 +166,7 @@
     )[
       #if value != "" and value != none [
         #set par(justify: false)
-        #value
+        #printed(value)
       ]
     ]
   ]
@@ -215,15 +194,19 @@
 )
 
 // --- MAIN HEADING & AGREEMENT METADATA ---
-#v(0.35cm)
+// Compact header spacing fits the company row without shrinking description boxes.
+#v(0.1cm)
 #align(center)[
   #text(size: 16pt, weight: "bold", hyphenate: false)[Commercial Use Agreement] \
   #v(0.4em)
-  #text(size: 10pt)[*No.:* #capture_field(field_name: "agreement_number", field_type: "text", dimensions: (width: 50pt, height: 13pt))[#box(width: 50pt, height: 13pt, stroke: (bottom: 0.5pt + black), inset: (bottom: 2pt))[#if agreement_number != "" [#agreement_number] else []]] #h(2.5em) *Date:* #if date_str != "" [#date_str] else [#capture_field(field_name: "date_day", field_type: "text", dimensions: (width: 20pt, height: 13pt))[#box(width: 20pt, height: 13pt, stroke: (bottom: 0.5pt + black), inset: (bottom: 2pt))[]] / #capture_field(field_name: "date_month", field_type: "text", dimensions: (width: 20pt, height: 13pt))[#box(width: 20pt, height: 13pt, stroke: (bottom: 0.5pt + black), inset: (bottom: 2pt))[]] / #capture_field(field_name: "date_year", field_type: "text", dimensions: (width: 32pt, height: 13pt))[#box(width: 32pt, height: 13pt, stroke: (bottom: 0.5pt + black), inset: (bottom: 2pt))[]]]]
+  #text(size: 10pt)[
+    *No.:* #capture_field(field_name: "agreement_number", dimensions: (width: 50pt, height: 13pt), value: agreement_number)[#box(width: 50pt, height: 13pt, stroke: (bottom: 0.5pt + black), inset: (bottom: 2pt))[#printed(agreement_number)]]
+    #h(2.5em) *Date:* #date_fields(("date_day", "date_month", "date_year"), date_str)
+  ]
 ]
 #v(0.3cm)
 #line(length: 100%, stroke: 0.4pt)
-#v(0.35cm)
+#v(0.1cm)
 
 // 1. CONTRACTING PARTIES
 #section_heading[1. Contracting Parties]
@@ -237,16 +220,17 @@
   align: (col, row) => (left + horizon),
   
   table.cell(colspan: 2, fill: luma(238))[*Tampere Hacklab ry*],
-  [Board representative's name], capture_field(field_name: "board_representative_name", field_type: "text", dimensions: (width: 310pt, height: 11pt))[#board_representative_name],
+  [Board representative's name], table_field("board_representative_name", board_representative_name),
   
   table.cell(colspan: 2, fill: luma(238))[*Member*],
-  [Name], capture_field(field_name: "member_name", field_type: "text", dimensions: (width: 310pt, height: 11pt))[#member_name],
-  [Business ID (if business activity)], capture_field(field_name: "member_business_id", field_type: "text", dimensions: (width: 310pt, height: 11pt))[#member_business_id],
-  [Membership number], capture_field(field_name: "membership_number", field_type: "text", dimensions: (width: 310pt, height: 11pt))[#membership_number],
+  [Name], table_field("member_name", member_name),
+  [Membership number], table_field("membership_number", membership_number),
+  [Company (if business activity)], table_field("member_company", member_company),
+  [Business ID (if business activity)], table_field("member_business_id", member_business_id),
   
   table.cell(colspan: 2, fill: luma(238))[*Guardian (filled if member is a minor)*],
-  [Name], capture_field(field_name: "guardian_name", field_type: "text", dimensions: (width: 310pt, height: 11pt))[#guardian_name],
-  [Contact information (phone / email)], capture_field(field_name: "guardian_contact", field_type: "text", dimensions: (width: 310pt, height: 11pt))[#guardian_contact],
+  [Name], table_field("guardian_name", guardian_name),
+  [Contact information (phone / email)], table_field("guardian_contact", guardian_contact),
 )
 
 #v(0.3em)
@@ -282,7 +266,8 @@
 #v(0.15em)
 
 #grid(
-  columns: (1.2fr, 1fr),
+  columns: (1fr, 1.35fr, 1fr),
+  column-gutter: 8pt,
   row-gutter: 0.45em,
   [
     #checkbox_field(checked: comp_financial, field_name: "comp_financial")[Financial compensation]
@@ -307,7 +292,7 @@
 #v(0.25em)
 *Description:*
 #v(0.12em)
-#description_box(compensation_description, field_name: "compensation_description", height: 36pt)
+#description_box(compensation_description, field_name: "compensation_description", height: 72pt)
 
 // 5. SPECIAL TERMS AND CONDITIONS
 #section_heading[5. Special Terms and Conditions]
@@ -315,23 +300,23 @@
   For example, working only during specified hours, maximum usage limits, storage practices.
 ]
 #v(0.12em)
-#description_box(special_conditions, field_name: "special_conditions", height: 36pt)
+#description_box(special_conditions, field_name: "special_conditions", height: 72pt)
 
 // 6. VALIDITY OF THE AGREEMENT
 #section_heading[6. Validity of the Agreement]
 
-#checkbox_field(checked: validity_indefinite, field_name: "validity_indefinite")[Valid until further notice] \
-#v(0.25em)
-#checkbox_field(checked: validity_fixed_term, field_name: "validity_fixed_term")[
-  Fixed term until #h(0.2em)
-  #capture_field(field_name: "valid_until_day", field_type: "text", dimensions: (width: 20pt, height: 13pt))[
-    #box(width: 20pt, height: 13pt, stroke: (bottom: 0.5pt + black), inset: (bottom: 2pt))[]
-  ] / #capture_field(field_name: "valid_until_month", field_type: "text", dimensions: (width: 20pt, height: 13pt))[
-    #box(width: 20pt, height: 13pt, stroke: (bottom: 0.5pt + black), inset: (bottom: 2pt))[]
-  ] / #capture_field(field_name: "valid_until_year", field_type: "text", dimensions: (width: 32pt, height: 13pt))[
-    #box(width: 32pt, height: 13pt, stroke: (bottom: 0.5pt + black), inset: (bottom: 2pt))[]
-  ]
-]
+#grid(
+  columns: (1fr, 1fr),
+  column-gutter: 8pt,
+  align: bottom,
+  [#checkbox_field(checked: validity_indefinite, field_name: "validity_indefinite")[Valid until further notice]],
+  [
+    #checkbox_field(checked: validity_fixed_term, field_name: "validity_fixed_term")[
+      Fixed term until #h(0.2em)
+      #date_fields(("valid_until_day", "valid_until_month", "valid_until_year"), valid_until)
+    ]
+  ],
+)
 
 #v(0.15em)
 #text(size: 9pt, fill: luma(50))[The agreement will be reviewed as necessary if activities change.]
@@ -361,7 +346,7 @@
     *For Tampere Hacklab ry*
     #v(2.5em)
     #line(length: 100%, stroke: 0.5pt)
-    #if signature_hacklab_name != "" [
+    #if signature_hacklab_name != "" and not fillable [
       #v(0.2em)
       #text(size: 9.5pt)[#signature_hacklab_name]
     ]
@@ -370,7 +355,7 @@
     *Member*
     #v(2.5em)
     #line(length: 100%, stroke: 0.5pt)
-    #if signature_member_name != "" [
+    #if signature_member_name != "" and not fillable [
       #v(0.2em)
       #text(size: 9.5pt)[#signature_member_name]
     ]
@@ -385,7 +370,7 @@
     *Guardian (minor member)*
     #v(2.5em)
     #line(length: 100%, stroke: 0.5pt)
-    #if signature_guardian_name != "" [
+    #if signature_guardian_name != "" and not fillable [
       #v(0.2em)
       #text(size: 9.5pt)[#signature_guardian_name]
     ]

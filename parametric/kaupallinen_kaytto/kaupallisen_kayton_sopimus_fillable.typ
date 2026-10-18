@@ -3,11 +3,15 @@
 // Käyttöohje:
 // 1. Voit syöttää sopimuksen tiedot suoraan alla oleviin muuttujiin tässä tiedostossa
 //    tai ajaa komentoriviltä parametrina, esim:
-//    typst compile --input jasen_nimi="Matti Meikäläinen" kaupallisen_kayton_sopimus.typ
+//    typst compile --input jasen_nimi="Matti Meikäläinen" kaupallisen_kayton_sopimus_fillable.typ
 // 2. Käännä PDF-tiedostoksi:
-//    typst compile kaupallisen_kayton_sopimus.typ
-// 3. Tyhjä pohja: Kun jätät muuttujat tyhjiksi (""), syntyy siisti tulostettava pohja
+//    typst compile kaupallisen_kayton_sopimus_fillable.typ
+// 3. Täytettävä PDF (typst-fillable):
+//    python3 generate_fillable_sopimus.py --language fi
+// 4. Tyhjä pohja: Kun jätät muuttujat tyhjiksi (""), syntyy siisti tulostettava pohja
 //    käsin täytettäviä merkintöjä ja allekirjoituksia varten.
+
+#import "form_fields.typ": capture_field, table_field, date_fields, printed, fillable
 
 // ==========================================
 // 1. SOPIMUKSEN TIEDOT JA MUUTTUJAT
@@ -21,8 +25,9 @@
 #let hallituksen_edustajan_nimi = sys.inputs.at("hallituksen_edustajan_nimi", default: "")
 
 #let jasen_nimi = sys.inputs.at("jasen_nimi", default: "")
-#let jasen_y_tunnus = sys.inputs.at("jasen_y_tunnus", default: "")       // jos yritystoimintaa
 #let jasennumero = sys.inputs.at("jasennumero", default: "")
+#let jasen_yritys = sys.inputs.at("jasen_yritys", default: "")           // jos yritystoimintaa
+#let jasen_y_tunnus = sys.inputs.at("jasen_y_tunnus", default: "")       // jos yritystoimintaa
 
 #let huoltaja_nimi = sys.inputs.at("huoltaja_nimi", default: "")        // täytetään, jos jäsen on alaikäinen
 #let huoltaja_yhteystiedot = sys.inputs.at("huoltaja_yhteystiedot", default: "") // puhelin / sähköposti
@@ -87,31 +92,6 @@
   ]
 )
 
-// typst-fillable metadata capture function
-#let capture_field(
-  field_name: "",
-  field_type: "text",
-  dimensions: none,
-  content
-) = {
-  box({
-    context {
-      let pos = here().position()
-      let size = if dimensions != none { dimensions } else {
-        let m = measure(content)
-        (width: m.width, height: m.height)
-      }
-      metadata((
-        fieldName: field_name,
-        fieldType: field_type,
-        dimensions: (width: size.width, height: size.height),
-        pos: (page: pos.page, x: pos.x, y: pos.y),
-      ))
-    }
-    content
-  })
-}
-
 // Tampere Hacklab ry -logo (identtinen muistiotositteen kanssa)
 #let hacklab_logo(mittakaava: 75%) = {
   scale(x: mittakaava, y: mittakaava, origin: right + horizon, reflow: true)[
@@ -143,6 +123,7 @@
       field_name: kentta,
       field_type: "checkbox",
       dimensions: (width: 9.5pt, height: 9.5pt),
+      value: valittu,
     )[
       #box(
         width: 9.5pt,
@@ -150,7 +131,7 @@
         stroke: 0.6pt + black,
         radius: 1.5pt,
         align(center + horizon)[
-          #if valittu [
+          #if valittu and not fillable [
             #text(size: 8pt, weight: "bold")[#sym.times]
           ]
         ]
@@ -174,7 +155,7 @@
 
 // Apufunktio: Tekstialue / laatikko kuvaukselle
 #let kuvauslaatikko(arvo, kentta: "", korkeus: 36pt) = {
-  capture_field(field_name: kentta, field_type: "textarea", dimensions: (width: 480pt, height: korkeus))[
+  capture_field(field_name: kentta, field_type: "textarea", dimensions: (width: 100%, height: korkeus), value: arvo)[
     #rect(
       width: 100%,
       height: korkeus,
@@ -185,7 +166,7 @@
     )[
       #if arvo != "" and arvo != none [
         #set par(justify: false)
-        #arvo
+        #printed(arvo)
       ]
     ]
   ]
@@ -213,15 +194,19 @@
 )
 
 // --- MAIN HEADING & VOUCHER METADATA ---
-#v(0.35cm)
+// Tiiviimpi otsake jättää tilaa yritysriville pienentämättä kuvauslaatikoita.
+#v(0.1cm)
 #align(center)[
   #text(size: 16pt, weight: "bold", hyphenate: false)[Kaupallisen käytön sopimus] \
   #v(0.4em)
-  #text(size: 10pt)[*Nro:* #capture_field(field_name: "sopimusnumero", field_type: "text", dimensions: (width: 50pt, height: 13pt))[#box(width: 50pt, height: 13pt, stroke: (bottom: 0.5pt + black), inset: (bottom: 2pt))[#if sopimusnumero != "" [#sopimusnumero] else []]] #h(2.5em) *Päiväys:* #if paivays != "" [#paivays] else [#capture_field(field_name: "paiva_pv", field_type: "text", dimensions: (width: 20pt, height: 13pt))[#box(width: 20pt, height: 13pt, stroke: (bottom: 0.5pt + black), inset: (bottom: 2pt))[]] / #capture_field(field_name: "paiva_kk", field_type: "text", dimensions: (width: 20pt, height: 13pt))[#box(width: 20pt, height: 13pt, stroke: (bottom: 0.5pt + black), inset: (bottom: 2pt))[]] / #capture_field(field_name: "paiva_vuosi", field_type: "text", dimensions: (width: 32pt, height: 13pt))[#box(width: 32pt, height: 13pt, stroke: (bottom: 0.5pt + black), inset: (bottom: 2pt))[]]]]
+  #text(size: 10pt)[
+    *Nro:* #capture_field(field_name: "sopimusnumero", dimensions: (width: 50pt, height: 13pt), value: sopimusnumero)[#box(width: 50pt, height: 13pt, stroke: (bottom: 0.5pt + black), inset: (bottom: 2pt))[#printed(sopimusnumero)]]
+    #h(2.5em) *Päiväys:* #date_fields(("paiva_pv", "paiva_kk", "paiva_vuosi"), paivays)
+  ]
 ]
 #v(0.3cm)
 #line(length: 100%, stroke: 0.4pt)
-#v(0.35cm)
+#v(0.1cm)
 
 // 1. SOPIJAPUOLET (TAULUKKORAKENNE)
 #osio[1. Sopijapuolet]
@@ -235,16 +220,17 @@
   align: (col, row) => (left + horizon),
   
   table.cell(colspan: 2, fill: luma(238))[*Tampere Hacklab ry*],
-  [Hallituksen edustajan nimi], capture_field(field_name: "hallituksen_edustajan_nimi", field_type: "text", dimensions: (width: 310pt, height: 11pt))[#hallituksen_edustajan_nimi],
+  [Hallituksen edustajan nimi], table_field("hallituksen_edustajan_nimi", hallituksen_edustajan_nimi),
   
   table.cell(colspan: 2, fill: luma(238))[*Jäsen*],
-  [Nimi], capture_field(field_name: "jasen_nimi", field_type: "text", dimensions: (width: 310pt, height: 11pt))[#jasen_nimi],
-  [Y-tunnus (jos yritystoimintaa)], capture_field(field_name: "y_tunnus", field_type: "text", dimensions: (width: 310pt, height: 11pt))[#jasen_y_tunnus],
-  [Jäsennumero], capture_field(field_name: "jasennumero", field_type: "text", dimensions: (width: 310pt, height: 11pt))[#jasennumero],
+  [Nimi], table_field("jasen_nimi", jasen_nimi),
+  [Jäsennumero], table_field("jasennumero", jasennumero),
+  [Yritys (jos yritystoimintaa)], table_field("jasen_yritys", jasen_yritys),
+  [Y-tunnus (jos yritystoimintaa)], table_field("y_tunnus", jasen_y_tunnus),
   
   table.cell(colspan: 2, fill: luma(238))[*Huoltaja (täytetään, jos jäsen on alaikäinen)*],
-  [Nimi], capture_field(field_name: "huoltaja_nimi", field_type: "text", dimensions: (width: 310pt, height: 11pt))[#huoltaja_nimi],
-  [Yhteystiedot (puhelin / sähköposti)], capture_field(field_name: "yhteystiedot", field_type: "text", dimensions: (width: 310pt, height: 11pt))[#huoltaja_yhteystiedot],
+  [Nimi], table_field("huoltaja_nimi", huoltaja_nimi),
+  [Yhteystiedot (puhelin / sähköposti)], table_field("yhteystiedot", huoltaja_yhteystiedot),
 )
 
 #v(0.3em)
@@ -280,7 +266,8 @@
 #v(0.15em)
 
 #grid(
-  columns: (1.2fr, 1fr),
+  columns: (1fr, 1.35fr, 1fr),
+  column-gutter: 8pt,
   row-gutter: 0.45em,
   [
     #valintaruutu(valittu: korvaus_rahallinen, kentta: "korvaus_rahallinen")[Rahallinen korvaus]
@@ -305,7 +292,7 @@
 #v(0.25em)
 *Kuvaus:*
 #v(0.12em)
-#kuvauslaatikko(korvauksen_kuvaus, kentta: "korvauksen_kuvaus", korkeus: 36pt)
+#kuvauslaatikko(korvauksen_kuvaus, kentta: "korvauksen_kuvaus", korkeus: 72pt)
 
 // 5. ERITYISEHDOT
 #osio[5. Erityisehdot]
@@ -313,23 +300,23 @@
   Esimerkiksi työskentely vain ilmoitettuna aikana, enimmäiskäyttömäärä, varastointikäytännöt.
 ]
 #v(0.12em)
-#kuvauslaatikko(erityisehdot, kentta: "erityisehdot", korkeus: 36pt)
+#kuvauslaatikko(erityisehdot, kentta: "erityisehdot", korkeus: 72pt)
 
 // 6. SOPIMUKSEN VOIMASSAOLO
 #osio[6. Sopimuksen voimassaolo]
 
-#valintaruutu(valittu: voimassaolo_toistaiseksi, kentta: "voimassaolo_toistaiseksi")[Toistaiseksi voimassa] \
-#v(0.25em)
-#valintaruutu(valittu: voimassaolo_maaraaikainen, kentta: "voimassaolo_maaraaikainen")[
-  Voimassa #h(0.2em)
-  #capture_field(field_name: "voimassa_asti_pv", field_type: "text", dimensions: (width: 20pt, height: 13pt))[
-    #box(width: 20pt, height: 13pt, stroke: (bottom: 0.5pt + black), inset: (bottom: 2pt))[]
-  ] / #capture_field(field_name: "voimassa_asti_kk", field_type: "text", dimensions: (width: 20pt, height: 13pt))[
-    #box(width: 20pt, height: 13pt, stroke: (bottom: 0.5pt + black), inset: (bottom: 2pt))[]
-  ] / #capture_field(field_name: "voimassa_asti_vuosi", field_type: "text", dimensions: (width: 32pt, height: 13pt))[
-    #box(width: 32pt, height: 13pt, stroke: (bottom: 0.5pt + black), inset: (bottom: 2pt))[]
-  ] #h(0.2em) asti
-]
+#grid(
+  columns: (1fr, 1fr),
+  column-gutter: 8pt,
+  align: bottom,
+  [#valintaruutu(valittu: voimassaolo_toistaiseksi, kentta: "voimassaolo_toistaiseksi")[Toistaiseksi voimassa]],
+  [
+    #valintaruutu(valittu: voimassaolo_maaraaikainen, kentta: "voimassaolo_maaraaikainen")[
+      Voimassa #h(0.2em)
+      #date_fields(("voimassa_asti_pv", "voimassa_asti_kk", "voimassa_asti_vuosi"), voimassa_asti) #h(0.2em) asti
+    ]
+  ],
+)
 
 #v(0.15em)
 #text(size: 9pt, fill: luma(50))[Sopimus tarkistetaan tarvittaessa toiminnan muuttuessa.]
@@ -359,7 +346,7 @@
     *Tampere Hacklab ry:n puolesta*
     #v(2.5em)
     #line(length: 100%, stroke: 0.5pt)
-    #if allekirjoitus_hacklab_nimi != "" [
+    #if allekirjoitus_hacklab_nimi != "" and not fillable [
       #v(0.2em)
       #text(size: 9.5pt)[#allekirjoitus_hacklab_nimi]
     ]
@@ -368,7 +355,7 @@
     *Jäsen*
     #v(2.5em)
     #line(length: 100%, stroke: 0.5pt)
-    #if allekirjoitus_jasen_nimi != "" [
+    #if allekirjoitus_jasen_nimi != "" and not fillable [
       #v(0.2em)
       #text(size: 9.5pt)[#allekirjoitus_jasen_nimi]
     ]
@@ -383,7 +370,7 @@
     *Huoltaja (alaikäinen jäsen)*
     #v(2.5em)
     #line(length: 100%, stroke: 0.5pt)
-    #if allekirjoitus_huoltaja_nimi != "" [
+    #if allekirjoitus_huoltaja_nimi != "" and not fillable [
       #v(0.2em)
       #text(size: 9.5pt)[#allekirjoitus_huoltaja_nimi]
     ]

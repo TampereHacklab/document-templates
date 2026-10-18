@@ -1,0 +1,2 @@
+typst-fillable==0.0.1
+pypdf>=6.19,<7
